@@ -1,7 +1,7 @@
 import tensorflow as tf
 import data_util
 from config import Config
-from text_cnn import TextCNN
+from rnn import TextRNN
 import numpy as np
 import os
 
@@ -10,7 +10,7 @@ train_label_file = "data/train/labels.txt"
 dev_data_file = "data/dev/tokenized_reviews.txt"
 dev_label_file = "data/dev/labels.txt"
 vocab_file = "data/vocab"
-checkpoint_dir = "./save/checkpoints/cnn"
+checkpoint_dir = "./save/checkpoints/rnn"
 checkpoint_prefix = os.path.join(checkpoint_dir, "cnn")
 max_vocab_size = 5e5
 batch_size = 32
@@ -27,7 +27,7 @@ dev_docs, dev_seq_len, max_len, dev_labels = \
 
 # set config, and build tf graph and init
 config = Config(max_vocab_size, max_len)
-model = TextCNN(config)
+model = TextRNN(config)
 model.build()
 sess_config = tf.ConfigProto()
 sess_config.gpu_options.allow_growth = True
@@ -52,8 +52,8 @@ for i in range(config.num_epochs):
     batches = data_util.batch_loader(train_data, batch_size, shuffle=True)
     for batch in batches:
         batch_docs, batch_seq_len, batch_labels = zip(*batch)
-        step, loss, acc = model.train(sess, batch_docs, batch_seq_len,
-                                      batch_labels, config.dropout)
+        step, loss, acc, rmse = model.train(sess, batch_docs, batch_seq_len,
+                                            batch_labels, config.dropout)
         print("epoch: {}, loss: {}, acc: {}".format(epoch, loss, acc))
     del train_data
     dev_data = list(zip(dev_docs, dev_seq_len, dev_labels))

@@ -76,7 +76,7 @@ class TextCNN(object):
         self.accuracy = tf.reduce_mean(
             tf.cast(tf.equal(self.input_y, self.preds), dtype=tf.float32))
         mse = tf.reduce_mean((self.input_y - self.preds) ** 2)
-        self.rmse = tf.sqrt(mse)
+        self.rmse = tf.sqrt(tf.cast(mse,tf.float32))
 
     def add_loss(self):
         losses = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -103,10 +103,10 @@ class TextCNN(object):
             self.dropout: dropout
         }
         output_feed = [self.train_op, self.global_step, self.loss,
-                       self.accuracy]
+                       self.accuracy, self.rmse]
         outputs = sess.run(output_feed, feed_dict=input_feed)
         # return global step, loss and accuracy
-        return outputs[1], outputs[2], outputs[3]
+        return outputs[1], outputs[2], outputs[3], outputs[4]
 
     def eval(self, sess, docs, seq_len, labels, dropout=1.0):
         input_feed = {
