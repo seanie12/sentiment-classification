@@ -14,6 +14,7 @@ class TextCNN(object):
         self.logits = None
         self.preds = None
         self.accuracy = None
+        self.rmse = None
         self.loss = None
         self.train_op = None
         self.global_step = tf.Variable(tf.constant(0), trainable=False,
@@ -28,7 +29,8 @@ class TextCNN(object):
                                               name="seq_len")
 
     def add_embedding(self):
-        zero = tf.constant([[0.0] * self.config.embedding_size], dtype=tf.float32)
+        zero = tf.constant([[0.0] * self.config.embedding_size],
+                           dtype=tf.float32)
         embedding_matrix = tf.get_variable(
             shape=[self.config.vocab_size - 1, self.config.embedding_size],
             dtype=tf.float32,
@@ -40,6 +42,10 @@ class TextCNN(object):
         lookup = tf.nn.embedding_lookup(self.embedding_matrix, self.input_x)
         expanded_words = tf.expand_dims(lookup, axis=3)
         for i, filter_size in enumerate(self.config.filters):
+            # for wide convolution, zero pad left and right with filter - 1
+            paddings = tf.constant(
+                [[0, 0], [filter_size - 1, filter_size - 1], [0, 0], [0, 0]])
+            padded_chars = tf.pad(expanded_words, paddings, mode="CONSTANT")
             filter_shape = [filter_size, self.config.embedding_size, 1,
                             self.config.num_filters]
             w = tf.get_variable(shape=filter_shape,
@@ -48,11 +54,11 @@ class TextCNN(object):
             b = tf.get_variable(shape=self.config.num_filters,
                                 initializer=tf.zeros_initializer(),
                                 name="bias_{}".format(i), dtype=tf.float32)
-            conv = tf.nn.conv2d(expanded_words, w, padding="VALID",
+            conv = tf.nn.conv2d(padded_chars, w, padding="VALID",
                                 strides=[1, 1, 1, 1])
             conv = tf.nn.relu(conv + b)
             max_pool = tf.nn.max_pool(conv, ksize=[1,
-                                                   self.config.max_length - filter_size + 1,
+                                                   self.config.max_length + filter_size - 1,
                                                    1, 1], padding="VALID",
                                       strides=[1, 1, 1, 1])
             pooled.append(max_pool)
@@ -69,6 +75,8 @@ class TextCNN(object):
         self.preds = tf.argmax(self.logits, axis=1, output_type=tf.int32)
         self.accuracy = tf.reduce_mean(
             tf.cast(tf.equal(self.input_y, self.preds), dtype=tf.float32))
+        mse = tf.reduce_mean((self.input_y - self.preds) ** 2)
+        self.rmse = tf.sqrt(mse)
 
     def add_loss(self):
         losses = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -100,6 +108,18 @@ class TextCNN(object):
         # return global step, loss and accuracy
         return outputs[1], outputs[2], outputs[3]
 
+    def eval(self, sess, docs, seq_len, labels, dropout=1.0):
+        input_feed = {
+            self.input_x: docs,
+            self.input_y: labels,
+            self.sequence_length: seq_len,
+            self.dropout: dropout
+        }
+        output_feed = [self.accuracy, self.rmse]
+        outputs = sess.run(output_feed, input_feed)
+        # return accuracy and rmse
+        return outputs[0], outputs[1]
+
     def predict(self, sess, docs, sequence_lengths, dropout=1.0):
         feed_dict = {
             self.input_x: docs,
@@ -117,5 +137,5 @@ class TextCNN(object):
 
     def restore(self, sess, path):
         saver = tf.train.Saver(tf.global_variables())
-        save_path = saver.restore(sess, path)
-        print("load model from {}".format(save_path))
+        saver.restore(sess, path)
+        print("load model from {}".format(path))
