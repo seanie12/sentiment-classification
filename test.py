@@ -46,7 +46,7 @@ rmse = np.sqrt(rmse)
 print("test accuracy : {}".format(test_acc))
 print(rmse)
 reviews = open(test_data_file, "r", encoding="utf-8").readlines()
-reviews = list(map(lambda x : x.strip().replace("</s>", ""), reviews))
+reviews = list(map(lambda x: x.strip().replace("</s>", ""), reviews))
 result = np.column_stack((total_preds, test_labels, reviews))
 with open(result_file, "w", encoding="utf-8") as f:
     fw = csv.writer(f)

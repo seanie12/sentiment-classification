@@ -20,7 +20,7 @@ vocab = data_util.Vocab(vocab_file, max_vocab_size=max_vocab_size)
 # load data
 print("load data file")
 train_docs, train_seq_len, max_len, train_labels = \
-    data_util.load_data(train_data_file, train_label_file, vocab)
+    data_util.load_data(train_data_file, train_label_file, vocab, 2000)
 print(max_len)
 dev_docs, dev_seq_len, max_len, dev_labels = \
     data_util.load_data(dev_data_file, dev_label_file, vocab, max_len)
@@ -29,7 +29,7 @@ dev_docs, dev_seq_len, max_len, dev_labels = \
 config = Config(max_vocab_size, max_len)
 model = TextRNN(config)
 model.build()
-sess_config = tf.ConfigProto()
+sess_config = tf.ConfigProto(allow_soft_placement=True)
 sess_config.gpu_options.allow_growth = True
 sess_config.gpu_options.per_process_gpu_memory_fraction = 0.9
 sess = tf.Session(config=sess_config)

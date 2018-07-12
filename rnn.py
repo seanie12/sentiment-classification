@@ -19,6 +19,7 @@ class TextRNN(object):
         self.rmse = None
         self.global_step = tf.Variable(tf.constant(0), trainable=False,
                                        name="global_step")
+        self.weighted_values = None
 
     def add_placeholder(self):
         self.input_x = tf.placeholder(shape=[None, self.config.max_length],
@@ -43,7 +44,7 @@ class TextRNN(object):
                                                 self.input_x)
         cell_fw = tf.nn.rnn_cell.LSTMCell(self.config.hidden_size)
         cell_bw = tf.nn.rnn_cell.LSTMCell(self.config.hidden_size)
-        ((_, _),
+        (outputs,
          (fw_states, bw_states)) = tf.nn.bidirectional_dynamic_rnn(cell_fw,
                                                                    cell_bw,
                                                                    embedded_chars,
@@ -53,11 +54,40 @@ class TextRNN(object):
         # get last hidden state : [batch, hidden_size]
         last_states = tf.concat([fw_states[-1], bw_states[-1]], axis=1)
         self.last_states = tf.nn.dropout(last_states, self.dropout)
+        # self attention with single head
+        # concatenate forward and backward
+        outputs = tf.concat(outputs, axis=2)
+        with tf.device("/device:GPU:1"):
+            queries = layers.fully_connected(outputs,
+                                             self.config.hidden_size,
+                                             activation_fn=tf.nn.relu)
+            keys = layers.fully_connected(outputs, self.config.hidden_size,
+                                          activation_fn=tf.nn.relu)
+            values = layers.fully_connected(outputs, self.config.hidden_size,
+                                            activation_fn=tf.nn.relu)
+            # [batch, 1, nstpes]
+            weight = tf.matmul(queries, tf.transpose(keys, [0, 2, 1]))
+            weight /= self.config.hidden_size ** 0.5
+            # key mask
+            key_mask = tf.sign(tf.abs(tf.reduce_sum(outputs, axis=2)))
+            key_mask = tf.expand_dims(key_mask, axis=1)
+            paddings = tf.ones_like(key_mask) * (-2 ** 32 + 1)
+            key_mask = tf.where(tf.equal(key_mask, 0), paddings, key_mask)
+            weight *= key_mask
+            weight = tf.nn.softmax(weight)
+            weighted_values = tf.matmul(weight, values)
+            # average pooling over time dimension
+            self.weighted_values = tf.reduce_mean(weighted_values, axis=1)
 
     def add_logits(self):
-        self.logits = layers.fully_connected(self.last_states,
-                                             self.config.num_classes,
-                                             activation_fn=None)
+        if self.config.attention:
+            self.logits = layers.fully_connected(self.weighted_values,
+                                                 self.config.num_classes,
+                                                 activation_fn=None)
+        else:
+            self.logits = layers.fully_connected(self.last_states,
+                                                 self.config.num_classes,
+                                                 activation_fn=None)
 
     def add_loss(self):
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(
@@ -86,9 +116,9 @@ class TextRNN(object):
         self.add_loss()
         self.add_train_op()
 
-    def save(self, sess, path):
+    def save(self, sess, path, global_step):
         saver = tf.train.Saver(tf.global_variables())
-        save_path = saver.save(sess, path)
+        save_path = saver.save(sess, path, global_step=global_step)
         print("save the model at {}".format(save_path))
 
     def restore(self, sess, path):
