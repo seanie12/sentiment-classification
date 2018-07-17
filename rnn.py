@@ -75,6 +75,10 @@ class TextRNN(object):
             key_mask = tf.where(tf.equal(key_mask, 0), paddings, key_mask)
             weight *= key_mask
             weight = tf.nn.softmax(weight)
+            # query mask
+            query_mask = tf.sign(tf.abs(tf.reduce_sum(outputs, axis=2)))
+            query_mask = tf.expand_dims(query_mask, axis=2)
+            weight *= query_mask
             weighted_values = tf.matmul(weight, values)
             # average pooling over time dimension
             self.weighted_values = tf.reduce_mean(weighted_values, axis=1)
