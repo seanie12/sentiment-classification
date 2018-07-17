@@ -15,7 +15,7 @@ checkpoint_prefix = os.path.join(checkpoint_dir, "cnn")
 max_vocab_size = 5e5
 batch_size = 32
 print("build vocab")
-# data_util.Vocab.build_vocab_file(train_data_file, vocab_file)
+data_util.Vocab.build_vocab_file(train_data_file, vocab_file)
 vocab = data_util.Vocab(vocab_file, max_vocab_size=max_vocab_size)
 # load data
 print("load data file")
