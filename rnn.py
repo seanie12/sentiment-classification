@@ -65,7 +65,7 @@ class TextRNN(object):
                                           activation_fn=tf.nn.relu)
             values = layers.fully_connected(outputs, self.config.hidden_size,
                                             activation_fn=tf.nn.relu)
-            # [batch, 1, nstpes]
+            
             weight = tf.matmul(queries, tf.transpose(keys, [0, 2, 1]))
             weight /= self.config.hidden_size ** 0.5
             # key mask
