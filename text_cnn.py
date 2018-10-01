@@ -58,7 +58,7 @@ class TextCNN(object):
                                 strides=[1, 1, 1, 1])
             conv = tf.nn.relu(conv + b)
             max_pool = tf.nn.max_pool(conv, ksize=[1,
-                                                   self.config.max_length + filter_size - 1,
+                                                   self.config.max_length - filter_size + 1,
                                                    1, 1], padding="VALID",
                                       strides=[1, 1, 1, 1])
             pooled.append(max_pool)
