@@ -7,4 +7,4 @@ Kim, Yoon. "Convolutional neural networks for sentence classification." arXiv pr
 
 I do not use pre-trained word vectors. only use random init word vectors
 
-for RNN, I use bi-directional LSTM
+for RNN, I use bi-directional LSTM with self attention
